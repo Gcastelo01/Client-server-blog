@@ -7,44 +7,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "action.h"
+#include "blogoperation.h"
 
 
-void printGame(struct action *mov)
-{
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 4; j++)
-        {
-            int valor = mov->board[i][j];
-
-            if (valor == -2)
-            {
-                printf("-\t\t");
-            }
-            else if (valor == 0)
-            {
-                printf("0\t\t");
-            }
-            else if (valor == -3)
-            {
-               printf(">\t\t");
-            }
-            else if (valor == -1)
-            {
-                printf("*\t\t");
-            }
-            else
-            {
-                printf("%d\t\t", valor);
-            }
-        }
-        printf("\n");
-    }
-}
-
-
-void makeChoice(struct action* next)
+void makeChoice(struct BlogOperation* next)
 {
 
     char input[100];  // Ajuste o tamanho conforme necessário
@@ -57,32 +23,7 @@ void makeChoice(struct action* next)
     input[strcspn(input, "\n")] = '\0';
 
     sscanf(input, "%s %d,%d", type_action, &coords0, &coords1);
-
-    if (strcmp(type_action, "start") == 0)
-    {
-        next->type = 0;
-
-    }
-    else if (strcmp(type_action, "reveal") == 0 || strcmp(type_action, "flag") == 0 ||
-             strcmp(type_action, "remove_flag") == 0)
-    {
-        next->type = (strcmp(type_action, "reveal") == 0) ? 1 : ((strcmp(type_action, "flag") == 0) ? 2 : 4);
-        next->coordinates[0] = coords0;
-        next->coordinates[1] = coords1;
-    }
-    else if (strcmp(type_action, "reset") == 0)
-    {
-        next->type = 5;
-    }
-    else if (strcmp(type_action, "exit") == 0)
-    {
-        next->type = 7;
-    }
-    else
-    {
-        printf("Ação inválida. Tente novamente.\n");
-        next->type = -1; 
-    }
+    
 }
 
 
@@ -124,29 +65,24 @@ int main(int argc, char *argv[])
         perror("Connection failed");
     }
 
-    struct action mov;
+    struct BlogOperation mov;
 
-    for(int i = 0; i < 4; i++){
-        for(int j = 0; j < 4; j++){
-            mov.board[i][j] = -2;
-        }
-    }
 
     for (;;)
     {
         makeChoice(&mov);
 
-        size_t count = send(sock, &mov, sizeof(struct action), 0);
+        size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
 
-        if (count != sizeof(struct action))
+        if (count != sizeof(struct BlogOperation))
         {
             perror("Falha ao enviar dados para o servidor");
             break;
         }
 
-        size_t recv_count = recv(sock, &mov, sizeof(struct action), 0);
+        size_t recv_count = recv(sock, &mov, sizeof(struct BlogOperation), 0);
 
-        if (recv_count != sizeof(struct action))
+        if (recv_count != sizeof(struct BlogOperation))
         {
             perror("Falha ao receber dados da resposta");
             break;
@@ -158,27 +94,7 @@ int main(int argc, char *argv[])
         else
         {
             system("clear");
-            
-            if (mov.type == 7)
-            {
-                close(sock);
-                return 0;
-            }
-            else if(mov.type == 6)
-            {
-                printf("YOU WIN!\n");
-                printGame(&mov);
-            }
-            else if(mov.type == 8)
-            {
-                printf("GAME OVER!\n");
-                printGame(&mov);
-
-            }
-            else
-            {
-                printGame(&mov);
-            }
+            // Lógica de processamento de cada
         }
     }
 
