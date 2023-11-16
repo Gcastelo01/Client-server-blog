@@ -23,23 +23,26 @@ void use()
 
 /**
  * @brief Caso um tópico não exista, adiciona um novo tópico à Lista de Tópicos
- * 
+ *
  * @param op Ordem de operação enviada pelo cliente
  * @param tList Lista de tópicos
- * 
-*/
+ *
+ */
 void addTopic(struct BlogOperation *op, struct Topic *tList)
 {
-    if(tList->next_topic == NULL && tList->id == -1){
+    if (tList->next_topic == NULL && tList->id == -1)
+    {
+        strcat(op->topic, "\n");
         strcpy(tList->name_topic, op->topic);
-        
+
         tList->subscribers[op->client_id] = 1;
         tList->id = tList->id++;
     }
-    else if(tList->next_topic == NULL)
+    else if (tList->next_topic == NULL)
     {
-        struct Topic* new = malloc(sizeof(struct Topic));
+        struct Topic *new = malloc(sizeof(struct Topic));
 
+        strcat(op->topic, "\n");
         strcpy(new->name_topic, op->topic);
 
         new->subscribers[op->client_id] = 1;
@@ -55,19 +58,19 @@ void addTopic(struct BlogOperation *op, struct Topic *tList)
 
 /**
  * @brief Encontra um tópico na lista. Caso o tópico não exista, retorna NULL
- * 
- * @param t: Ponteiro para o primeiro tópico da lista de tópicos. 
+ *
+ * @param t: Ponteiro para o primeiro tópico da lista de tópicos.
  * @param name: Nome do tópico que está sendo procurado
- * 
+ *
  * @return Ponteiro para o tópico procurado, NULL caso não exista.
-*/
+ */
 struct Topic *findTopic(struct Topic *t, char *name)
 {
     if (strcmp(name, t->name_topic) == 0)
     {
         return t;
     }
-    else if(t->next_topic != NULL)
+    else if (t->next_topic != NULL)
     {
         return findTopic(t->next_topic, name);
     }
@@ -77,10 +80,10 @@ struct Topic *findTopic(struct Topic *t, char *name)
 
 /**
  * @brief Inscreve um cliente em um determinado tópico, caso o mesmo exista. Se o tópico Não existe, cria um novo tópico e adiciona o cliente nele.
- * 
+ *
  * @param op Ponteiro para a ordem de operação do cliente
  * @param tList POnteiro para a lista de tópicos exitentes
-*/
+ */
 void subscribe(struct BlogOperation *op, struct Topic *tList)
 {
     struct Topic *search = findTopic(tList, op->topic);
@@ -96,15 +99,17 @@ void subscribe(struct BlogOperation *op, struct Topic *tList)
 }
 
 /**
- * @brief Cancela a Incrição de um cliente em um tópico 
- * 
+ * @brief Cancela a Incrição de um cliente em um tópico
+ *
  * @param op Ponteiro para a ordem de operação do cliente
  * @param tList POnteiro para a lista de tópicos exitentes
-*/
-void unsubscribe(struct BlogOperation *op, struct Topic *tList) {
+ */
+void unsubscribe(struct BlogOperation *op, struct Topic *tList)
+{
     struct Topic *search = findTopic(tList, op->topic);
 
-    if(search == NULL){
+    if (search == NULL)
+    {
         strcpy(op->content, "O tópico não existe");
     }
     else
@@ -114,10 +119,43 @@ void unsubscribe(struct BlogOperation *op, struct Topic *tList) {
 }
 
 /**
- * @brief
-*/
-void listTopics(struct BlogOperation *op) {}
+ * @brief Gera uma lista de tópicos existentes, e salva ela no campo content da operação.
+ *
+ * @param op Struct de comunicação cliente/servidor
+ * @param t Lista de Tópicos
+ * @param tnames string contendo nomes dos tópicos
+ */
+void generateTopicList(struct BlogOperation *op, struct Topic *t, char *tnames)
+{
+    if (t->next_topic == NULL)
+    {
+        strcat(tnames, t->name_topic);
+        strcpy(op->content, tnames);
+    }
+    else
+    {
+        strcat(tnames, t->name_topic);
+        generateTopicList(op, t, tnames);
+    }
+}
 
+/**
+ * @brief lista os tópicos existentes
+ *
+ * @param op Ordem de operação que será enviada com a resposta para o cliente (Ponteiro)
+ * @param t Lista de tópicos
+ */
+void listTopics(struct BlogOperation *op, struct Topic *t)
+{
+    char tnames[] = "";
+    generateTopicList(op, t, tnames);
+}
+
+/**
+ * @brief Cria um novo post em um determinado tópico, caso o mesmo exista.
+ * 
+ * @attention
+*/
 void createPost(struct BlogOperation *op) {}
 
 /**
@@ -268,7 +306,8 @@ int main(int argc, char *argv[])
     tpcs.id = -1;
     tpcs.id = NULL;
 
-    for(int i = 0; i < 10; i++){
+    for (int i = 0; i < 10; i++)
+    {
         tpcs.subscribers[i] = 0;
     }
 
