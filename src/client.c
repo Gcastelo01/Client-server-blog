@@ -9,21 +9,70 @@
 
 #include "blogoperation.h"
 
+int id = 0;
 
-void makeChoice(struct BlogOperation* next)
+/**
+ * @brief Molda a operação a ser transmitida para o servidor de acordo com o input digitado pelo cliente
+ * 
+ * @param next Ponteiro para a Struct BlogOperation que carregará as informações da próxima ação do blog.
+*/
+void makeChoice(struct BlogOperation *next)
 {
+    char input[100]; // Ajuste o tamanho conforme necessário
+    char command[20];
 
-    char input[100];  // Ajuste o tamanho conforme necessário
-    char type_action[20];
-    int coords0, coords1;
+    next->client_id = id;
 
     printf("Digite a ação: ");
     fgets(input, sizeof(input), stdin);
 
-    input[strcspn(input, "\n")] = '\0';
+    sscanf(input, "%s", command);
 
-    sscanf(input, "%s %d,%d", type_action, &coords0, &coords1);
-    
+    if (strcmp(command, "subscribe") == 0)
+    {
+        char topicName[50];
+        sscanf(input, "%s %s", command, topicName);
+
+        next->operation_type = 4;
+        next->server_response = 0;
+        strcpy(next->topic, topicName);
+        strcpy(next->content, "");
+    }
+    else if (strcmp(command, "publish") == 0)
+    {
+        char topic[50];
+        char content[2048];
+        sscanf(input, "%s %s %s", command, NULL, topic);
+        fgets(content, sizeof(content), stdin);
+
+        next->operation_type = 2;
+        next->server_response = 0;
+        strcpy(next->topic, topic);
+        strcpy(next->content, content);
+    }
+    else if (strcmp(command, "list") == 0)
+    {
+        next->operation_type = 3;
+        next->server_response = 0;
+        strcpy(next->content, "");
+        strcpy(next->topic, "");
+    }
+    else if (strcmp(command, "exit") == 0)
+    {
+        next->operation_type = 5;
+        next->server_response = 0;
+        strcpy(next->content, "");
+        strcpy(next->topic, "");
+    }
+    else if (strcmp(command, "unsubscribe") == 0)
+    {
+        char topicName[50];
+        sscanf(input, "%s %s", command, topicName);
+        next->operation_type = 6;
+        next->server_response = 0;
+        strcpy(next->topic, topicName);
+        strcpy(next->content, "");
+    }
 }
 
 
@@ -72,7 +121,6 @@ int main(int argc, char *argv[])
 
         size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
     }
-
 
     for (;;)
     {
