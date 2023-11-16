@@ -59,13 +59,19 @@ int main(int argc, char *argv[])
     }
 
     int res = (connect(sock, (struct sockaddr *)&servAddr, sizeof(servAddr)));
+    struct BlogOperation mov;
 
     if (res < 0)
     {
         perror("Connection failed");
     }
+    else
+    {
+        mov.client_id = 0;
+        mov.operation_type = 1;
 
-    struct BlogOperation mov;
+        size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+    }
 
 
     for (;;)
