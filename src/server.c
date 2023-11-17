@@ -16,6 +16,9 @@ static const int MAXPENDING = 5;
 int FLAGGED = 0;
 int REVEALED = 0;
 
+/**
+ * @brief Mostra para o usuário a maneira correta de executar o programa
+*/
 void use()
 {
     printf("./server <PROTOCOL v4 || v6> <PORT> -i <INPUT FILE>");
