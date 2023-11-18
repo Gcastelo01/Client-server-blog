@@ -13,10 +13,9 @@
 
 static const int MAXPENDING = 5;
 
-
 /**
  * @brief Mostra para o usuário a maneira correta de executar o programa
-*/
+ */
 void use()
 {
     printf("./server <PROTOCOL v4 || v6> <PORT> -i <INPUT FILE>");
@@ -154,9 +153,9 @@ void listTopics(struct BlogOperation *op, struct Topic *t)
 
 /**
  * @brief Cria um novo post em um determinado tópico, caso o mesmo exista.
- * 
+ *
  * @attention
-*/
+ */
 void createPost(struct BlogOperation *op) {}
 
 /**
@@ -211,15 +210,16 @@ int addClient(struct Client *cli)
 void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic *tp)
 {
     int opID = op->operation_type;
+    op->server_response = 1;
 
     switch (opID)
     {
     // Novo cliente conectou ao servidor
     case 1:
         op->client_id = addClient(cli);
+
         printf("Adicionei o cliente %d", op->client_id);
         op->operation_type = 1;
-        op->server_response = 1;
         strcpy(op->topic, "");
         strcpy(op->content, "");
 
@@ -227,10 +227,13 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
 
     // Novo post em um tópico
     case 2:
+        createPost(op);
+        printf("new post added in %s by %d\n%s", op->topic, op->client_id, op->content);
         break;
 
     // Listagem de Tópicos
     case 3:
+        listTopics(op, tp);
         break;
 
     // Inscrição em um tópico (Cria novo caso topico n exista)
@@ -238,13 +241,13 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
         subscribe(op, tp);
         break;
 
-    // Desconecta de servidor
-    case 5:
-        break;
-
     // Desinscrever de um topico
     case 6:
         unsubscribe(op, tp);
+        break;
+
+    // Desconecta de servidor
+    case 5:
         break;
 
     // Tratamento de erros
@@ -258,7 +261,6 @@ int main(int argc, char *argv[])
     char *C_PROTOCOL = argv[1];
     in_port_t PORT = atoi(argv[2]);
 
-    char *INPUT_m = argv[4];
 
     int PROTOCOLO;
     extern char *optarg;
