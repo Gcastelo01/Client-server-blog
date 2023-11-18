@@ -218,7 +218,7 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     case 1:
         op->client_id = addClient(cli);
 
-        printf("Adicionei o cliente %d", op->client_id);
+        printf("Client %d connected. \n", op->client_id);
         op->operation_type = 1;
         strcpy(op->topic, "");
         strcpy(op->content, "");
@@ -234,20 +234,24 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     // Listagem de Tópicos
     case 3:
         listTopics(op, tp);
+        printf("Topics Listed by %d", op->client_id);
         break;
 
     // Inscrição em um tópico (Cria novo caso topico n exista)
     case 4:
         subscribe(op, tp);
+        printf("Client %d subscribed to topic %s", op->client_id, op->topic);
         break;
 
     // Desinscrever de um topico
     case 6:
         unsubscribe(op, tp);
+        printf("Client %d desubscribed from topic %s", op->client_id, op->topic);
         break;
 
     // Desconecta de servidor
     case 5:
+        printf("Client %d disconnected", op->client_id);
         break;
 
     // Tratamento de erros
