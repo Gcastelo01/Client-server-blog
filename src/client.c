@@ -46,7 +46,9 @@ void makeChoice(struct BlogOperation *next)
         {
             char topic[50];
             char content[2048];
-            sscanf(input, "%s %s %s", command, NULL, topic);
+            char useless[2];
+
+            sscanf(input, "%s %s %s", command, useless, topic);
             fgets(content, sizeof(content), stdin);
 
             next->operation_type = 2;
@@ -132,6 +134,11 @@ int main(int argc, char *argv[])
         mov.operation_type = 1;
 
         size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+        if (count != sizeof(struct BlogOperation))
+        {
+            perror("Falha ao enviar dados para o servidor");
+            exit(EXIT_FAILURE);
+        }
     }
 
     pid_t pid = fork();
