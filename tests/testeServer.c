@@ -11,6 +11,15 @@
 
 int id = 0;
 
+void testCount(size_t c)
+{
+    if (c != sizeof(struct BlogOperation))
+    {
+        perror("Erro ao enviar dados");
+        exit(EXIT_FAILURE);
+    }
+}
+
 /**
  * @brief Molda a operação a ser transmitida para o servidor de acordo com o input digitado pelo cliente
  *
@@ -122,7 +131,9 @@ int main(int argc, char *argv[])
     }
 
     int res = (connect(sock, (struct sockaddr *)&servAddr, sizeof(servAddr)));
+
     struct BlogOperation mov;
+    size_t sizeOp = sizeof(struct BlogOperation);
 
     if (res < 0)
     {
@@ -130,15 +141,21 @@ int main(int argc, char *argv[])
     }
     else
     {
-        mov.client_id = 0;
-        mov.operation_type = 1;
-
-        size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
-        
-        if (count != sizeof(struct BlogOperation))
+        for (int i = 1; i < 6; i++)
         {
-            perror("Falha ao enviar dados para o servidor");
-            exit(EXIT_FAILURE);
+            mov.client_id = 0;
+            mov.operation_type = i;
+
+            size_t count = send(sock, &mov, sizeOp, 0);
+
+            testCount(count);
+
+            size_t rcvCount = recv(sock, &mov, sizeOp, 0);
+
+            testCount(rcvCount);
+
+            printf("Operação %d realizada com sucesso. Continuar para operação seguinte? y/n", mov.operation_type);
+            scanf("%s", NULL);
         }
     }
 

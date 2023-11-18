@@ -5,21 +5,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <getopt.h>
 
 #include "blogoperation.h"
 #include "serverClient.h"
 #include "topic.h"
 
 static const int MAXPENDING = 5;
-
-/**
- * @brief Mostra para o usuário a maneira correta de executar o programa
- */
-void use()
-{
-    printf("./server <PROTOCOL v4 || v6> <PORT> -i <INPUT FILE>");
-}
 
 /**
  * @brief Caso um tópico não exista, adiciona um novo tópico à Lista de Tópicos
@@ -32,11 +23,12 @@ void addTopic(struct BlogOperation *op, struct Topic *tList)
 {
     if (tList->next_topic == NULL && tList->id == -1)
     {
+        int auxid = op->client_id;
         strcat(op->topic, "\n");
         strcpy(tList->name_topic, op->topic);
 
-        tList->subscribers[op->client_id] = 1;
-        tList->id = tList->id++;
+        *(tList->subscribers[auxid]) = 1;
+        tList->id = tList->id + 1;
     }
     else if (tList->next_topic == NULL)
     {
@@ -45,7 +37,7 @@ void addTopic(struct BlogOperation *op, struct Topic *tList)
         strcat(op->topic, "\n");
         strcpy(new->name_topic, op->topic);
 
-        new->subscribers[op->client_id] = 1;
+        *(new->subscribers[op->client_id]) = 1;
         new->id = tList->id++;
         new->next_topic = NULL;
         tList->next_topic = new;
@@ -94,7 +86,7 @@ void subscribe(struct BlogOperation *op, struct Topic *tList)
     }
     else
     {
-        search->subscribers[op->client_id] = 1;
+        *(search->subscribers[op->client_id]) = 1;
     }
 }
 
@@ -262,12 +254,15 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
 
 int main(int argc, char *argv[])
 {
+    if (argc < 3 || argc > 4)
+    {
+        printf("Parâmetros: <Endereço do Servidor> <Porta do Servidor>\n");
+        return 1;
+    }
     char *C_PROTOCOL = argv[1];
     in_port_t PORT = atoi(argv[2]);
 
-
     int PROTOCOLO;
-    extern char *optarg;
 
     int servSock;
 
@@ -311,7 +306,7 @@ int main(int argc, char *argv[])
     struct Client cli;
     struct Topic tpcs;
     tpcs.id = -1;
-    tpcs.id = NULL;
+    tpcs.next_topic = NULL;
 
     for (int i = 0; i < 10; i++)
     {
@@ -339,6 +334,7 @@ int main(int argc, char *argv[])
         else
         {
             processaEntrada(&mov, &cli, &tpcs);
+            send(clntSock, &mov, sizeof(struct BlogOperation), 0);
         }
     }
 
