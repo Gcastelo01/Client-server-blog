@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -11,42 +12,6 @@
 #include "topic.h"
 
 static const int MAXPENDING = 5;
-
-/**
- * @brief Caso um tópico não exista, adiciona um novo tópico à Lista de Tópicos
- *
- * @param op Ordem de operação enviada pelo cliente
- * @param tList Lista de tópicos
- *
- */
-void addTopic(struct BlogOperation *op, struct Topic *tList)
-{
-    if (tList->next_topic == NULL && tList->id == -1)
-    {
-        int auxid = op->client_id;
-        strcat(op->topic, "\n");
-        strcpy(tList->name_topic, op->topic);
-
-        *(tList->subscribers[auxid]) = 1;
-        tList->id = tList->id + 1;
-    }
-    else if (tList->next_topic == NULL)
-    {
-        struct Topic *new = malloc(sizeof(struct Topic));
-
-        strcat(op->topic, "\n");
-        strcpy(new->name_topic, op->topic);
-
-        *(new->subscribers[op->client_id]) = 1;
-        new->id = tList->id++;
-        new->next_topic = NULL;
-        tList->next_topic = new;
-    }
-    else
-    {
-        addTopic(op, tList->next_topic);
-    }
-}
 
 /**
  * @brief Encontra um tópico na lista. Caso o tópico não exista, retorna NULL
@@ -74,19 +39,42 @@ struct Topic *findTopic(struct Topic *t, char *name)
  * @brief Inscreve um cliente em um determinado tópico, caso o mesmo exista. Se o tópico Não existe, cria um novo tópico e adiciona o cliente nele.
  *
  * @param op Ponteiro para a ordem de operação do cliente
- * @param tList POnteiro para a lista de tópicos exitentes
+ * @param tList Ponteiro para a lista de tópicos exitentes
  */
 void subscribe(struct BlogOperation *op, struct Topic *tList)
 {
-    struct Topic *search = findTopic(tList, op->topic);
-
-    if (search == NULL)
+    if (tList->id == -1)
     {
-        addTopic(op, tList);
+        tList->id = 0;
+        strcpy(tList->name_topic, op->topic);
+        (tList->subscribers[op->client_id]) = 1;
     }
     else
     {
-        *(search->subscribers[op->client_id]) = 1;
+        for (struct Topic *aux = tList; aux != NULL; aux = aux->next_topic)
+        {
+
+            if (strcmp(op->topic, aux->name_topic) == 0)
+            {
+                (aux->subscribers[op->client_id]) = 1;
+                break;
+            }
+            else if (aux->next_topic == NULL)
+            {
+                struct Topic *new = malloc(sizeof(struct Topic));
+
+                strcat(op->topic, "\n");
+                strcpy(new->name_topic, op->topic);
+
+                (new->subscribers[op->client_id]) = 1;
+
+                new->id = aux->id + 1;
+                new->next_topic = NULL;
+
+                aux->next_topic = new;
+                break;
+            }
+        }
     }
 }
 
@@ -111,27 +99,6 @@ void unsubscribe(struct BlogOperation *op, struct Topic *tList)
 }
 
 /**
- * @brief Gera uma lista de tópicos existentes, e salva ela no campo content da operação.
- *
- * @param op Struct de comunicação cliente/servidor
- * @param t Lista de Tópicos
- * @param tnames string contendo nomes dos tópicos
- */
-void generateTopicList(struct BlogOperation *op, struct Topic *t, char *tnames)
-{
-    if (t->next_topic == NULL)
-    {
-        strcat(tnames, t->name_topic);
-        strcpy(op->content, tnames);
-    }
-    else
-    {
-        strcat(tnames, t->name_topic);
-        generateTopicList(op, t, tnames);
-    }
-}
-
-/**
  * @brief lista os tópicos existentes
  *
  * @param op Ordem de operação que será enviada com a resposta para o cliente (Ponteiro)
@@ -139,8 +106,21 @@ void generateTopicList(struct BlogOperation *op, struct Topic *t, char *tnames)
  */
 void listTopics(struct BlogOperation *op, struct Topic *t)
 {
-    char tnames[] = "";
-    generateTopicList(op, t, tnames);
+    char topics[2048] = "\n";
+
+    if (t->id != -1)
+    {
+        for (struct Topic *aux = t; aux != NULL; aux = aux->next_topic)
+        {
+            strcat(topics, aux->name_topic);
+        }
+    }
+    else
+    {
+        strcat(topics, "não há topicos");
+    }
+
+    strcpy(op->content, topics);
 }
 
 /**
@@ -220,13 +200,13 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     // Novo post em um tópico
     case 2:
         createPost(op);
-        printf("new post added in %s by %d\n%s", op->topic, op->client_id, op->content);
+        printf("new post added in %s by %d\n %s \n", op->topic, op->client_id, op->content);
         break;
 
     // Listagem de Tópicos
     case 3:
         listTopics(op, tp);
-        printf("Topics Listed by %d", op->client_id);
+        printf("Topics Listed by %d \n", op->client_id);
         break;
 
     // Inscrição em um tópico (Cria novo caso topico n exista)
@@ -305,6 +285,7 @@ int main(int argc, char *argv[])
 
     struct Client cli;
     struct Topic tpcs;
+
     tpcs.id = -1;
     tpcs.next_topic = NULL;
 
