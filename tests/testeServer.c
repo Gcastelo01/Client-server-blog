@@ -134,6 +134,7 @@ int main(int argc, char *argv[])
 
     struct BlogOperation mov;
     size_t sizeOp = sizeof(struct BlogOperation);
+    int useless;
 
     if (res < 0)
     {
@@ -146,16 +147,52 @@ int main(int argc, char *argv[])
             mov.client_id = 0;
             mov.operation_type = i;
 
-            size_t count = send(sock, &mov, sizeOp, 0);
+            if (i != 2)
+            {
 
-            testCount(count);
+                size_t count = send(sock, &mov, sizeOp, 0);
 
-            size_t rcvCount = recv(sock, &mov, sizeOp, 0);
+                testCount(count);
 
-            testCount(rcvCount);
+                size_t rcvCount = recv(sock, &mov, sizeOp, 0);
 
-            printf("Operação %d realizada com sucesso. Continuar para operação seguinte? y/n", mov.operation_type);
-            scanf("%s", NULL);
+                testCount(rcvCount);
+
+                printf("Operação %d realizada com sucesso. Continuar para operação seguinte? ", mov.operation_type);
+                scanf("%d", &useless);
+            }
+            else if (i == 2)
+            {
+                strcpy(mov.topic, "testeTopico");
+                strcpy(mov.content, "teste de conteudo");
+
+                size_t count = send(sock, &mov, sizeOp, 0);
+
+                testCount(count);
+
+                size_t rcvCount = recv(sock, &mov, sizeOp, 0);
+
+                testCount(rcvCount);
+
+                printf("Operação %d realizada com sucesso. Continuar para operação seguinte? ", mov.operation_type);
+                scanf("%d", &useless);
+            }
+            else if (i == 4)
+            {
+                strcpy(mov.topic, "testeTopico2");
+                strcpy(mov.content, "teste de conteudo");
+
+                size_t count = send(sock, &mov, sizeOp, 0);
+
+                testCount(count);
+
+                size_t rcvCount = recv(sock, &mov, sizeOp, 0);
+
+                testCount(rcvCount);
+
+                printf("Operação %d realizada com sucesso. Continuar para operação seguinte? ", mov.operation_type);
+                scanf("%d", &useless);
+            }
         }
     }
 
