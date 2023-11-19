@@ -194,7 +194,7 @@ void processaEntrada(struct BlogOperation *op, int csock, pthread_mutex_t *mutex
         subscribe(op);
         pthread_mutex_unlock(mutex);
 
-        printf("Client %d subscribed to topic %s", op->client_id, op->topic);
+        printf("Client %d subscribed to topic %s\n", op->client_id, op->topic);
         break;
 
     // Desinscrever de um topico
@@ -203,12 +203,12 @@ void processaEntrada(struct BlogOperation *op, int csock, pthread_mutex_t *mutex
         unsubscribe(op);
         pthread_mutex_unlock(mutex);
 
-        printf("Client %d desubscribed from topic %s", op->client_id, op->topic);
+        printf("Client %d desubscribed from topic %s\n", op->client_id, op->topic);
         break;
 
     // Desconecta de servidor
     case 5:
-        printf("Client %d disconnected", op->client_id);
+        printf("Client %d disconnected\n", op->client_id);
         break;
 
     // Tratamento de erros
