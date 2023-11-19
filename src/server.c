@@ -6,13 +6,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #include "blogoperation.h"
 #include "serverClient.h"
+#include "connData.h"
 #include "topic.h"
 
 static const int MAXPENDING = 5;
-
 
 /**
  * @brief Inscreve um cliente em um determinado tópico, caso o mesmo exista. Se o tópico Não existe, cria um novo tópico e adiciona o cliente nele.
@@ -65,9 +66,9 @@ void subscribe(struct BlogOperation *op, struct Topic *tList)
  */
 void unsubscribe(struct BlogOperation *op, struct Topic *tList)
 {
-    for(struct Topic* aux = tList; aux != NULL; aux = aux->next_topic)
+    for (struct Topic *aux = tList; aux != NULL; aux = aux->next_topic)
     {
-        if(strcmp(aux->name_topic, op->topic) == 0)
+        if (strcmp(aux->name_topic, op->topic) == 0)
         {
             aux->subscribers[op->client_id] = 0;
             break;
@@ -105,7 +106,9 @@ void listTopics(struct BlogOperation *op, struct Topic *t)
  *
  * @attention
  */
-void createPost(struct BlogOperation *op) {}
+void createPost(struct BlogOperation *op)
+{
+}
 
 /**
  * @brief Função recursiva para encontrar o último cliente adicionado, e adicionar um novo cliente ao servidor
@@ -114,7 +117,7 @@ void createPost(struct BlogOperation *op) {}
  *
  * @return Id do cliente que foi adicionado.
  */
-int findLastAdded(struct Client *cli)
+int findLastAdded(struct Client *cli, int csock)
 {
     if (cli->nextClient == NULL)
     {
@@ -123,11 +126,12 @@ int findLastAdded(struct Client *cli)
         aux->id = cli->id++;
         aux->nextClient = NULL;
         cli->nextClient = aux;
+        cli->csock = csock;
 
         return aux->id;
     }
 
-    return findLastAdded(cli->nextClient);
+    return findLastAdded(cli->nextClient, csock);
 }
 
 /**
@@ -135,16 +139,16 @@ int findLastAdded(struct Client *cli)
  *
  * @return: Id do novo cliente adicionado.
  */
-int addClient(struct Client *cli)
+int addClient(struct Client *cli, int csock)
 {
     if (cli->id == 0)
     {
-        return findLastAdded(cli);
+        return findLastAdded(cli, csock);
     }
     else
     {
         cli->id = 0;
-
+        cli->csock = csock;
         cli->nextClient = NULL;
         return 0;
     }
@@ -156,7 +160,7 @@ int addClient(struct Client *cli)
  * @param op Dados da operação requerida pelo cliente
  * @param cli Lista encadeada de clientes cadastrados no servidor
  */
-void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic *tp)
+void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic *tp, int csock)
 {
     int opID = op->operation_type;
     op->server_response = 1;
@@ -165,7 +169,7 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     {
     // Novo cliente conectou ao servidor
     case 1:
-        op->client_id = addClient(cli);
+        op->client_id = addClient(cli, csock);
 
         printf("Client %d connected. \n", op->client_id);
         op->operation_type = 1;
@@ -177,7 +181,7 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     // Novo post em um tópico
     case 2:
         createPost(op);
-        printf("new post added in %s by %d\n %s \n", op->topic, op->client_id, op->content);
+        printf("New post added in %s by %d\n %s \n", op->topic, op->client_id, op->content);
         break;
 
     // Listagem de Tópicos
@@ -209,19 +213,48 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     }
 }
 
+void *clientThread(void *data)
+{
+    struct connData *cdata = (struct connData *)data;
+    struct BlogOperation mov;
+
+    for (;;)
+    {
+        size_t numbytesrec = recv(cdata->csock, &mov, sizeof(struct BlogOperation), 0);
+
+        if (numbytesrec < 0)
+        {
+            perror("Erro na recepção");
+        }
+        else if (numbytesrec == 0)
+        {
+            printf("Cliente encerrou a conexão\n");
+        }
+        else
+        {
+            processaEntrada(&mov, cdata->cli, cdata->tpcs, cdata->csock);
+            send(cdata->csock, &mov, sizeof(struct BlogOperation), 0);
+        }
+    }
+
+    close(cdata->csock);
+    pthread_exit(0);
+}
+
 int main(int argc, char *argv[])
 {
-    if (argc < 3 || argc > 4)
-    {
-        printf("Parâmetros: <Endereço do Servidor> <Porta do Servidor>\n");
-        return 1;
-    }
-    char *C_PROTOCOL = argv[1];
-    in_port_t PORT = atoi(argv[2]);
 
     int PROTOCOLO;
-
     int servSock;
+
+    if (argc < 3 || argc > 4)
+    {
+        printf("Parâmetros: <Protocolo (v4 ou v6)> <Porta do Servidor>\n");
+        return 1;
+    }
+
+    char *C_PROTOCOL = argv[1];
+    in_port_t PORT = atoi(argv[2]);
 
     if (strcmp(C_PROTOCOL, "v4") == 0)
     {
@@ -257,43 +290,44 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    struct sockaddr_in clntAddr;
-    struct BlogOperation mov;
+    struct Client *cli = malloc(sizeof(struct Client));
+    struct Topic *tpcs = malloc(sizeof(struct Topic));
 
-    struct Client cli;
-    struct Topic tpcs;
-
-    tpcs.id = -1;
-    tpcs.next_topic = NULL;
+    tpcs->id = -1;
+    tpcs->next_topic = NULL;
 
     for (int i = 0; i < 10; i++)
     {
-        tpcs.subscribers[i] = 0;
+        tpcs->subscribers[i] = 0;
     }
 
-    socklen_t clntAddrLen = sizeof(clntAddr);
-
-    int clntSock = accept(servSock, (struct sockaddr *)&clntAddr, &clntAddrLen);
 
     while (1)
     {
-        size_t numbytesrec = recv(clntSock, &mov, sizeof(struct BlogOperation), 0);
+        struct sockaddr_in clntAddr;
+        socklen_t clntAddrLen = sizeof(clntAddr);
+        int clntSock = accept(servSock, (struct sockaddr *)&clntAddr, &clntAddrLen);
 
-        if (numbytesrec < 0)
+        if (clntSock == -1)
         {
-            perror("Erro na recepção");
-            break;
+            perror("Erro na conexão accept()");
+            exit(EXIT_FAILURE);
         }
-        else if (numbytesrec == 0)
+
+        struct connData *cdata = malloc(sizeof(struct connData));
+
+        if (!cdata)
         {
-            printf("Cliente encerrou a conexão\n");
-            break;
+            perror("Não foi possível criar cdata");
+            exit(EXIT_FAILURE);
         }
-        else
-        {
-            processaEntrada(&mov, &cli, &tpcs);
-            send(clntSock, &mov, sizeof(struct BlogOperation), 0);
-        }
+
+        cdata->csock = clntSock;
+        cdata->cli = cli;
+        cdata->tpcs = tpcs;
+
+        pthread_t tid;
+        pthread_create(&tid, NULL, clientThread, cdata);
     }
 
     return 0;
