@@ -30,6 +30,12 @@ void subscribe(struct BlogOperation *op)
         tpcs.id = 0;
         strcpy(tpcs.name_topic, op->topic);
         (tpcs.subscribers[op->client_id]) = 1;
+
+        for (int i = 0; i < 10; i++)
+        {
+            printf("%d ", tpcs.subscribers[i]);
+        }
+        printf("\n");
     }
     else
     {
@@ -86,7 +92,7 @@ void unsubscribe(struct BlogOperation *op)
  */
 void listTopics(struct BlogOperation *op)
 {
-    char topics[2048] = "\n";
+    char topics[2048] = "\0";
 
     if (tpcs.id != -1)
     {
@@ -97,7 +103,7 @@ void listTopics(struct BlogOperation *op)
     }
     else
     {
-        strcat(topics, "não há topicos");
+        strcpy(topics, "não há topicos");
     }
 
     strcpy(op->content, topics);
@@ -239,8 +245,8 @@ void *clientThread(void *data)
         {
             processaEntrada(&mov, cdata->csock, cdata->mutex);
             size_t scount = send(cdata->csock, &mov, sizeof(struct BlogOperation), 0);
-            
-            if(scount < sizeof(struct BlogOperation))
+
+            if (scount < sizeof(struct BlogOperation))
             {
                 perror("Erro no envio de resposta");
                 exit(EXIT_FAILURE);
