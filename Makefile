@@ -7,21 +7,26 @@ TEST = ./tests
 BIN = ./bin
 EXEC = ./exec
 
-${EXEC}/client: ${BIN}/client.o ${EXEC}/server
+${EXEC}/client: ${BIN}/client.o ${EXEC}/server ${EXEC} 
 	${CC} ${CFLAGS} -I ${INC} ${BIN}/client.o -o ${EXEC}/client
 
 ${EXEC}/server: ${BIN}/server.o
 	${CC} ${CFLAGS} -I ${INC} ${BIN}/server.o -o ${EXEC}/server
 
-${BIN}/client.o: ${SRC}/client.c 
+${BIN}/client.o: ${SRC}/client.c ${BIN}
 	${CC} ${CFLAGS} -I ${INC} -c ${SRC}/client.c -o ${BIN}/client.o
 
 ${BIN}/server.o: ${SRC}/server.c ${INC}/serverClient.h ${INC}/topic.h 
 	${CC} ${CFLAGS} -I ${INC} -c ${SRC}/server.c -o ${BIN}/server.o
 
 
+${BIN}:
+	mkdir bin
+	mkdir exec
+
+
 test_server:
-	${CC} ${CFLAGS} -I ${INC} ${TEST}/testeServer.c -o ${EXEC}/testeser
+	${CC} ${CFLAGS} -I ${INC} ${TEST}/testeServer.c -o ${EXEC}/testeser 
 	${CC} ${CFLAGS} -I ${INC} ${SRC}/server.c -o ${EXEC}/server
 
 
