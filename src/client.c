@@ -34,7 +34,8 @@ void makeChoice(struct BlogOperation *next)
         if (strcmp(command, "subscribe") == 0)
         {
             char topicName[50];
-            sscanf(input, "%s %s", command, topicName);
+            char useless[2];
+            sscanf(input, "%s %s %s", command, useless, topicName);
 
             next->operation_type = 4;
             next->server_response = 0;
@@ -179,14 +180,27 @@ int main(int argc, char *argv[])
                 system("clear");
                 if (mov.server_response == 1 && mov.operation_type != 2)
                 {
-                    // açoes com resposta do servidor (caso tenha algo a ser feito)
+                    int id_op = mov.operation_type;
+
+                    switch (id_op)
+                    {
+                    case 1:
+                        id = mov.client_id;
+                        break;
+
+                    case 3:
+                        printf("%s\n", mov.content);
+                        break;
+
+                    default:
+                        break;
+                    }
                 }
             }
         }
     }
     else if (pid == 0)
     {
-        // Thread paralela que busca constantemente novos posts
         for (;;)
         {
             size_t count = recv(sock, &mov, sizeof(struct BlogOperation), 0);
