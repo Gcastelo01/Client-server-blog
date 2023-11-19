@@ -13,6 +13,8 @@
 #include "connData.h"
 #include "topic.h"
 
+struct Client cli;
+struct Topic tpcs;
 static const int MAXPENDING = 5;
 
 /**
@@ -21,17 +23,17 @@ static const int MAXPENDING = 5;
  * @param op Ponteiro para a ordem de operação do cliente
  * @param tList Ponteiro para a lista de tópicos exitentes
  */
-void subscribe(struct BlogOperation *op, struct Topic *tList)
+void subscribe(struct BlogOperation *op)
 {
-    if (tList->id == -1)
+    if (tpcs.id == -1)
     {
-        tList->id = 0;
-        strcpy(tList->name_topic, op->topic);
-        (tList->subscribers[op->client_id]) = 1;
+        tpcs.id = 0;
+        strcpy(tpcs.name_topic, op->topic);
+        (tpcs.subscribers[op->client_id]) = 1;
     }
     else
     {
-        for (struct Topic *aux = tList; aux != NULL; aux = aux->next_topic)
+        for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
         {
 
             if (strcmp(op->topic, aux->name_topic) == 0)
@@ -64,9 +66,9 @@ void subscribe(struct BlogOperation *op, struct Topic *tList)
  * @param op Ponteiro para a ordem de operação do cliente
  * @param tList POnteiro para a lista de tópicos exitentes
  */
-void unsubscribe(struct BlogOperation *op, struct Topic *tList)
+void unsubscribe(struct BlogOperation *op)
 {
-    for (struct Topic *aux = tList; aux != NULL; aux = aux->next_topic)
+    for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
     {
         if (strcmp(aux->name_topic, op->topic) == 0)
         {
@@ -82,13 +84,13 @@ void unsubscribe(struct BlogOperation *op, struct Topic *tList)
  * @param op Ordem de operação que será enviada com a resposta para o cliente (Ponteiro)
  * @param t Lista de tópicos
  */
-void listTopics(struct BlogOperation *op, struct Topic *t)
+void listTopics(struct BlogOperation *op)
 {
     char topics[2048] = "\n";
 
-    if (t->id != -1)
+    if (tpcs.id != -1)
     {
-        for (struct Topic *aux = t; aux != NULL; aux = aux->next_topic)
+        for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
         {
             strcat(topics, aux->name_topic);
         }
@@ -115,19 +117,19 @@ void createPost(struct BlogOperation *op)
  *
  * @return: Id do novo cliente adicionado.
  */
-int addClient(struct Client *cli, int csock)
+int addClient(int csock)
 {
-    if (cli->id == -1)
+    if (cli.id == -1)
     {
-        cli->id = 0;
-        cli->csock = csock;
-        cli->nextClient = NULL;
+        cli.id = 0;
+        cli.csock = csock;
+        cli.nextClient = NULL;
 
         return 0;
     }
     else
     {
-        for (struct Client *aux = cli; aux != NULL; aux = aux->nextClient)
+        for (struct Client *aux = &cli; aux != NULL; aux = aux->nextClient)
         {
             if (aux->nextClient == NULL)
             {
@@ -150,7 +152,7 @@ int addClient(struct Client *cli, int csock)
  * @param op Dados da operação requerida pelo cliente
  * @param cli Lista encadeada de clientes cadastrados no servidor
  */
-void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic *tp, int csock, pthread_mutex_t *mutex)
+void processaEntrada(struct BlogOperation *op, int csock, pthread_mutex_t *mutex)
 {
     int opID = op->operation_type;
     op->server_response = 1;
@@ -160,7 +162,7 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     // Novo cliente conectou ao servidor
     case 1:
         pthread_mutex_lock(mutex);
-        op->client_id = addClient(cli, csock);
+        op->client_id = addClient(csock);
         pthread_mutex_unlock(mutex);
 
         printf("Client %d connected. \n", op->client_id);
@@ -181,7 +183,7 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
 
     // Listagem de Tópicos
     case 3:
-        listTopics(op, tp);
+        listTopics(op);
 
         printf("Topics Listed by %d \n", op->client_id);
         break;
@@ -189,7 +191,7 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     // Inscrição em um tópico (Cria novo caso topico n exista)
     case 4:
         pthread_mutex_lock(mutex);
-        subscribe(op, tp);
+        subscribe(op);
         pthread_mutex_unlock(mutex);
 
         printf("Client %d subscribed to topic %s", op->client_id, op->topic);
@@ -198,7 +200,7 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     // Desinscrever de um topico
     case 6:
         pthread_mutex_lock(mutex);
-        unsubscribe(op, tp);
+        unsubscribe(op);
         pthread_mutex_unlock(mutex);
 
         printf("Client %d desubscribed from topic %s", op->client_id, op->topic);
@@ -235,7 +237,7 @@ void *clientThread(void *data)
         }
         else
         {
-            processaEntrada(&mov, cdata->cli, cdata->tpcs, cdata->csock, cdata->mutex);
+            processaEntrada(&mov, cdata->csock, cdata->mutex);
             send(cdata->csock, &mov, sizeof(struct BlogOperation), 0);
         }
     }
@@ -293,17 +295,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    struct Client *cli = malloc(sizeof(struct Client));
-    struct Topic *tpcs = malloc(sizeof(struct Topic));
-
-    cli->id = -1;
-
-    tpcs->id = -1;
-    tpcs->next_topic = NULL;
+    cli.id = -1;
+    tpcs.id = -1;
+    tpcs.next_topic = NULL;
 
     for (int i = 0; i < 10; i++)
     {
-        tpcs->subscribers[i] = 0;
+        tpcs.subscribers[i] = 0;
     }
 
     pthread_mutex_t mutex;
@@ -329,8 +327,6 @@ int main(int argc, char *argv[])
         }
 
         cdata->csock = clntSock;
-        cdata->cli = cli;
-        cdata->tpcs = tpcs;
         cdata->mutex = &mutex;
 
         pthread_t tid;
