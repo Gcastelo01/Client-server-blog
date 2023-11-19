@@ -244,12 +244,17 @@ void *clientThread(void *data)
         else
         {
             processaEntrada(&mov, cdata->csock, cdata->mutex);
+
             size_t scount = send(cdata->csock, &mov, sizeof(struct BlogOperation), 0);
 
             if (scount < sizeof(struct BlogOperation))
             {
                 perror("Erro no envio de resposta");
                 exit(EXIT_FAILURE);
+            }
+            else
+            {
+                printf("enviei Resposta!\n");
             }
         }
     }
