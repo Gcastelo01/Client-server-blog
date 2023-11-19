@@ -13,27 +13,6 @@
 
 static const int MAXPENDING = 5;
 
-/**
- * @brief Encontra um tópico na lista. Caso o tópico não exista, retorna NULL
- *
- * @param t: Ponteiro para o primeiro tópico da lista de tópicos.
- * @param name: Nome do tópico que está sendo procurado
- *
- * @return Ponteiro para o tópico procurado, NULL caso não exista.
- */
-struct Topic *findTopic(struct Topic *t, char *name)
-{
-    if (strcmp(name, t->name_topic) == 0)
-    {
-        return t;
-    }
-    else if (t->next_topic != NULL)
-    {
-        return findTopic(t->next_topic, name);
-    }
-
-    return NULL;
-}
 
 /**
  * @brief Inscreve um cliente em um determinado tópico, caso o mesmo exista. Se o tópico Não existe, cria um novo tópico e adiciona o cliente nele.
@@ -86,15 +65,13 @@ void subscribe(struct BlogOperation *op, struct Topic *tList)
  */
 void unsubscribe(struct BlogOperation *op, struct Topic *tList)
 {
-    struct Topic *search = findTopic(tList, op->topic);
-
-    if (search == NULL)
+    for(struct Topic* aux = tList; aux != NULL; aux = aux->next_topic)
     {
-        strcpy(op->content, "O tópico não existe");
-    }
-    else
-    {
-        search->subscribers[op->client_id] = 0;
+        if(strcmp(aux->name_topic, op->topic) == 0)
+        {
+            aux->subscribers[op->client_id] = 0;
+            break;
+        }
     }
 }
 
