@@ -6,7 +6,5 @@ struct connData
 {
     int csock;
     
-    struct Topic* tpcs;
-    struct Client* cli;
     pthread_mutex_t *mutex;
 };
