@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -lpthread
 
 INC = ./include
 SRC = ./src
@@ -7,7 +7,7 @@ TEST = ./tests
 BIN = ./bin
 EXEC = ./exec
 
-${EXEC}/client: ${BIN}/client.o
+${EXEC}/client: ${BIN}/client.o ${EXEC}/server
 	${CC} ${CFLAGS} -I ${INC} ${BIN}/client.o -o ${EXEC}/client
 
 ${EXEC}/server: ${BIN}/server.o
