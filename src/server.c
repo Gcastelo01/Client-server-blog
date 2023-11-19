@@ -111,46 +111,36 @@ void createPost(struct BlogOperation *op)
 }
 
 /**
- * @brief Função recursiva para encontrar o último cliente adicionado, e adicionar um novo cliente ao servidor
- *
- * @param cli Ponteiro para o primeiro cliente da lista de clientes (Os clientes formam uma lista encadedada)
- *
- * @return Id do cliente que foi adicionado.
- */
-int findLastAdded(struct Client *cli, int csock)
-{
-    if (cli->nextClient == NULL)
-    {
-        struct Client *aux = malloc(sizeof(struct Client));
-
-        aux->id = cli->id++;
-        aux->nextClient = NULL;
-        cli->nextClient = aux;
-        cli->csock = csock;
-
-        return aux->id;
-    }
-
-    return findLastAdded(cli->nextClient, csock);
-}
-
-/**
  * @brief: Adiciona um cliente ao servidor.
  *
  * @return: Id do novo cliente adicionado.
  */
 int addClient(struct Client *cli, int csock)
 {
-    if (cli->id == 0)
-    {
-        return findLastAdded(cli, csock);
-    }
-    else
+    if (cli->id == -1)
     {
         cli->id = 0;
         cli->csock = csock;
         cli->nextClient = NULL;
+
         return 0;
+    }
+    else
+    {
+        for (struct Client *aux = cli; aux != NULL; aux = aux->nextClient)
+        {
+            if (aux->nextClient == NULL)
+            {
+                struct Client *new_client = malloc(sizeof(struct Client));
+
+                new_client->id = aux->id + 1;
+                new_client->csock = csock;
+                new_client->nextClient = NULL;
+
+                aux->nextClient = new_client;
+                return new_client->id;
+            }
+        }
     }
 }
 
@@ -241,6 +231,7 @@ void *clientThread(void *data)
         else if (numbytesrec == 0)
         {
             printf("Cliente encerrou a conexão\n");
+            break;
         }
         else
         {
@@ -305,6 +296,8 @@ int main(int argc, char *argv[])
     struct Client *cli = malloc(sizeof(struct Client));
     struct Topic *tpcs = malloc(sizeof(struct Topic));
 
+    cli->id = -1;
+
     tpcs->id = -1;
     tpcs->next_topic = NULL;
 
@@ -344,5 +337,6 @@ int main(int argc, char *argv[])
         pthread_create(&tid, NULL, clientThread, cdata);
     }
 
+    pthread_mutex_destroy(&mutex);
     return 0;
 }
