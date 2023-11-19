@@ -160,7 +160,7 @@ int addClient(struct Client *cli, int csock)
  * @param op Dados da operação requerida pelo cliente
  * @param cli Lista encadeada de clientes cadastrados no servidor
  */
-void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic *tp, int csock)
+void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic *tp, int csock, pthread_mutex_t *mutex)
 {
     int opID = op->operation_type;
     op->server_response = 1;
@@ -169,7 +169,9 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
     {
     // Novo cliente conectou ao servidor
     case 1:
+        pthread_mutex_lock(mutex);
         op->client_id = addClient(cli, csock);
+        pthread_mutex_unlock(mutex);
 
         printf("Client %d connected. \n", op->client_id);
         op->operation_type = 1;
@@ -180,25 +182,35 @@ void processaEntrada(struct BlogOperation *op, struct Client *cli, struct Topic 
 
     // Novo post em um tópico
     case 2:
+        pthread_mutex_lock(mutex);
         createPost(op);
+        pthread_mutex_unlock(mutex);
+
         printf("New post added in %s by %d\n %s \n", op->topic, op->client_id, op->content);
         break;
 
     // Listagem de Tópicos
     case 3:
         listTopics(op, tp);
+
         printf("Topics Listed by %d \n", op->client_id);
         break;
 
     // Inscrição em um tópico (Cria novo caso topico n exista)
     case 4:
+        pthread_mutex_lock(mutex);
         subscribe(op, tp);
+        pthread_mutex_unlock(mutex);
+
         printf("Client %d subscribed to topic %s", op->client_id, op->topic);
         break;
 
     // Desinscrever de um topico
     case 6:
+        pthread_mutex_lock(mutex);
         unsubscribe(op, tp);
+        pthread_mutex_unlock(mutex);
+
         printf("Client %d desubscribed from topic %s", op->client_id, op->topic);
         break;
 
@@ -232,7 +244,7 @@ void *clientThread(void *data)
         }
         else
         {
-            processaEntrada(&mov, cdata->cli, cdata->tpcs, cdata->csock);
+            processaEntrada(&mov, cdata->cli, cdata->tpcs, cdata->csock, cdata->mutex);
             send(cdata->csock, &mov, sizeof(struct BlogOperation), 0);
         }
     }
@@ -301,6 +313,7 @@ int main(int argc, char *argv[])
         tpcs->subscribers[i] = 0;
     }
 
+    pthread_mutex_t mutex;
 
     while (1)
     {
@@ -325,6 +338,7 @@ int main(int argc, char *argv[])
         cdata->csock = clntSock;
         cdata->cli = cli;
         cdata->tpcs = tpcs;
+        cdata->mutex = &mutex;
 
         pthread_t tid;
         pthread_create(&tid, NULL, clientThread, cdata);
