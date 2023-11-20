@@ -7,11 +7,11 @@ TEST = ./tests
 BIN = ./bin
 EXEC = ./exec
 
-${EXEC}/client: ${BIN}/client.o ${EXEC}/server ${EXEC} 
-	${CC} ${CFLAGS} -I ${INC} ${BIN}/client.o -o ${EXEC}/client
+./client: ${BIN}/client.o ./server 
+	${CC} ${CFLAGS} -I ${INC} ${BIN}/client.o -o ./client
 
-${EXEC}/server: ${BIN}/server.o
-	${CC} ${CFLAGS} -I ${INC} ${BIN}/server.o -o ${EXEC}/server
+./server: ${BIN}/server.o
+	${CC} ${CFLAGS} -I ${INC} ${BIN}/server.o -o ./server
 
 ${BIN}/client.o: ${SRC}/client.c ${BIN}
 	${CC} ${CFLAGS} -I ${INC} -c ${SRC}/client.c -o ${BIN}/client.o
@@ -38,4 +38,6 @@ test_cli:
 clean:
 	rm -rf ${BIN}/*
 	rm -rf ${EXEC}/*
+	rm client
+	rm server
 	clear
