@@ -8,10 +8,10 @@ BIN = ./bin
 EXEC = ./exec
 
 ./client: ${BIN}/client.o ./server 
-	${CC} ${CFLAGS} -I ${INC} ${BIN}/client.o -o ./client
+	${CC} ${CFLAGS} -I ${INC} ${BIN}/client.o -o ${BIN}/client
 
 ./server: ${BIN}/server.o
-	${CC} ${CFLAGS} -I ${INC} ${BIN}/server.o -o ./server
+	${CC} ${CFLAGS} -I ${INC} ${BIN}/server.o -o ${BIN}/server
 
 ${BIN}/client.o: ${SRC}/client.c ${BIN}
 	${CC} ${CFLAGS} -I ${INC} -c ${SRC}/client.c -o ${BIN}/client.o

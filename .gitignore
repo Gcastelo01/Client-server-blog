@@ -1,3 +1,4 @@
 exec/
 .vscode/
 bin/
+*.zip
