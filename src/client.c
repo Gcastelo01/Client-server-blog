@@ -13,6 +13,7 @@
 
 int id = 0;
 int sock;
+pthread_mutex_t mutex;
 
 /**
  * @brief Molda a operação a ser transmitida para o servidor de acordo com o input digitado pelo cliente
@@ -24,11 +25,8 @@ void makeChoice(struct BlogOperation *next)
     char input[100]; // Ajuste o tamanho conforme necessário
     char command[20];
 
-    next->client_id = id;
-
     while (1)
     {
-      
         printf("Digite a ação: ");
         fgets(input, sizeof(input), stdin);
 
@@ -89,66 +87,17 @@ void makeChoice(struct BlogOperation *next)
         }
         else
         {
-            printf("Comando inválido! Tente Novamente");
+            printf("Comando inválido! Tente Novamente\n");
         }
     }
 }
 
-void *threadFuncOne(void *data)
-{
-    struct BlogOperation *mov = (struct BlogOperation *)data;
-    for (;;)
-    {
-        makeChoice(mov);
-
-        size_t count = send(sock, mov, sizeof(struct BlogOperation), 0);
-
-        if (count != sizeof(struct BlogOperation))
-        {
-            perror("Falha ao enviar dados para o servidor");
-            exit(EXIT_FAILURE);
-        }
-
-        size_t recv_count = recv(sock, mov, sizeof(struct BlogOperation), 0);
-        printf("recebi alguma coisa\n");
-
-        if (recv_count != sizeof(struct BlogOperation))
-        {
-            perror("Falha ao receber dados da resposta");
-            break;
-        }
-        else if (recv_count == 0)
-        {
-            printf("resposta vazia");
-        }
-        else
-        {
-            system("clear");
-            if (mov->server_response == 1 && mov->operation_type != 2)
-            {
-                int id_op = mov->operation_type;
-
-                switch (id_op)
-                {
-                case 1:
-                    id = mov->client_id;
-                    break;
-
-                case 3:
-                    printf("%s\n", mov->content);
-                    break;
-
-                default:
-                    break;
-                }
-            }
-        }
-    }
-}
 
 void *watcher(void *data)
 {
-    struct BlogOperation* mov = (struct BlogOperation *)data;
+    pthread_detach(pthread_self());
+
+    struct BlogOperation* mov = malloc(sizeof(struct BlogOperation));
 
     for (;;)
     {
@@ -158,18 +107,19 @@ void *watcher(void *data)
         {
             perror("Erro ao receber dados do servidor");
         }
-        else if (count == 0)
-        {
-        }
         else
         {
             if (mov->server_response == 1 && mov->operation_type == 2)
             {
-                printf("\nnew post added in %s by %d\n%s", mov->topic, mov->client_id, mov->content);
+                printf("\nNew post added in %s by %d\n%s", mov->topic, mov->client_id, mov->content);
             }
+            makeChoice(mov);
+
+            size_t count = send(sock, mov, sizeof(struct BlogOperation), 0);
         }
     }
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -203,6 +153,7 @@ int main(int argc, char *argv[])
     }
 
     int res = (connect(sock, (struct sockaddr *)&servAddr, sizeof(servAddr)));
+
     struct BlogOperation mov;
     struct BlogOperation mov2;
 
@@ -216,21 +167,64 @@ int main(int argc, char *argv[])
         mov.operation_type = 1;
 
         size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+
         if (count != sizeof(struct BlogOperation))
         {
             perror("Falha ao enviar dados para o servidor");
             exit(EXIT_FAILURE);
         }
+
+        id = mov.client_id;
+        mov2.client_id = id;
     }
 
-    pthread_t pid1;
     pthread_t pid2;
 
-    pthread_create(&pid1, NULL, threadFuncOne, &mov);
     pthread_create(&pid2, NULL, watcher, &mov2);
 
-    pthread_join(pid1, NULL);
-    pthread_join(pid2, NULL);
+    for (;;)
+    {
+        makeChoice(&mov);
+
+        size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+
+        if (count != sizeof(struct BlogOperation))
+        {
+            perror("Falha ao enviar dados para o servidor");
+            exit(EXIT_FAILURE);
+        }
+
+        size_t recv_count = recv(sock, &mov, sizeof(struct BlogOperation), 0);
+
+        if (recv_count != sizeof(struct BlogOperation))
+        {
+            perror("Falha ao receber dados da resposta");
+            break;
+        }
+        else if (recv_count == 0)
+        {
+            printf("resposta vazia");
+        }
+        else
+        {
+            system("clear");
+
+            if (mov.server_response == 1 && mov.operation_type != 2)
+            {
+                int id_op = mov.operation_type;
+
+                switch (id_op)
+                {
+                case 3:
+                    printf("%s\n", mov.content);
+                    break;
+
+                default:
+                    break;
+                }
+            }
+        }
+    }
 
     close(sock);
 

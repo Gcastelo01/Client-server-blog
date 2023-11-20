@@ -30,21 +30,15 @@ void subscribe(struct BlogOperation *op)
         tpcs.id = 0;
         strcpy(tpcs.name_topic, op->topic);
         (tpcs.subscribers[op->client_id]) = 1;
-
-        for (int i = 0; i < 10; i++)
-        {
-            printf("%d ", tpcs.subscribers[i]);
-        }
-        printf("\n");
     }
     else
     {
         for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
-        {
+        {    
 
             if (strcmp(op->topic, aux->name_topic) == 0)
             {
-                (aux->subscribers[op->client_id]) = 1;
+                aux->subscribers[op->client_id] = 1;
                 break;
             }
             else if (aux->next_topic == NULL)
@@ -64,6 +58,11 @@ void subscribe(struct BlogOperation *op)
             }
         }
     }
+    for (int i = 0; i < 10; i++)
+    {
+        printf("%d ", tpcs.subscribers[i]);
+    }
+    printf("\n");
 }
 
 /**
@@ -116,6 +115,42 @@ void listTopics(struct BlogOperation *op)
  */
 void createPost(struct BlogOperation *op)
 {
+    struct Topic *t;
+    for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
+    {
+        if (strcmp(aux->name_topic, op->topic) == 0)
+        {
+            t = aux;
+            break;
+        }
+        else if (aux->next_topic == NULL)
+        {
+            subscribe(op);
+            t = aux->next_topic;
+        }
+
+        for (int i = 0; i < 10; i++)
+        {
+            if (t->subscribers[i] == 1)
+            {
+                for (struct Client *aux = &cli; aux != NULL; aux = aux->nextClient)
+                {
+                    if (aux->id == i)
+                    {
+                        struct BlogOperation notif;
+                        notif.client_id = aux->id;
+                        notif.server_response = 1;
+                        notif.operation_type = 2;
+
+                        strcpy(notif.content, op->content);
+                        strcpy(notif.topic, op->topic);
+
+                        send(aux->csock, &notif, sizeof(struct BlogOperation), 0);
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -175,7 +210,6 @@ void processaEntrada(struct BlogOperation *op, int csock, pthread_mutex_t *mutex
         op->operation_type = 1;
         strcpy(op->topic, "");
         strcpy(op->content, "");
-
         break;
 
     // Novo post em um tópico
@@ -251,10 +285,6 @@ void *clientThread(void *data)
             {
                 perror("Erro no envio de resposta");
                 exit(EXIT_FAILURE);
-            }
-            else
-            {
-                printf("enviei Resposta!\n");
             }
         }
     }
