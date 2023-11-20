@@ -13,113 +13,34 @@
 
 int id = 0;
 int sock;
-pthread_mutex_t mutex;
 
-/**
- * @brief Molda a operação a ser transmitida para o servidor de acordo com o input digitado pelo cliente
- *
- * @param next Ponteiro para a Struct BlogOperation que carregará as informações da próxima ação do blog.
- */
-void makeChoice(struct BlogOperation *next)
+void verify(ssize_t count)
 {
-    char input[100]; // Ajuste o tamanho conforme necessário
-    char command[20];
-
-    while (1)
+    if (count != sizeof(struct BlogOperation))
     {
-        printf("Digite a ação: ");
-        fgets(input, sizeof(input), stdin);
-
-        sscanf(input, "%s", command);
-
-        if (strcmp(command, "subscribe") == 0)
-        {
-            char topicName[50];
-            char useless[2];
-            sscanf(input, "%s %s %s", command, useless, topicName);
-
-            next->operation_type = 4;
-            next->server_response = 0;
-            strcpy(next->topic, topicName);
-            strcpy(next->content, "");
-            break;
-        }
-        else if (strcmp(command, "publish") == 0)
-        {
-            char topic[50];
-            char content[2048];
-            char useless[2];
-
-            sscanf(input, "%s %s %s", command, useless, topic);
-            fgets(content, sizeof(content), stdin);
-
-            next->operation_type = 2;
-            next->server_response = 0;
-            strcpy(next->topic, topic);
-            strcpy(next->content, content);
-            break;
-        }
-        else if (strcmp(command, "list") == 0)
-        {
-            next->operation_type = 3;
-            next->server_response = 0;
-            strcpy(next->content, "");
-            strcpy(next->topic, "");
-            break;
-        }
-        else if (strcmp(command, "exit") == 0)
-        {
-            next->operation_type = 5;
-            next->server_response = 0;
-            strcpy(next->content, "");
-            strcpy(next->topic, "");
-            break;
-        }
-        else if (strcmp(command, "unsubscribe") == 0)
-        {
-            char topicName[50];
-            sscanf(input, "%s %s", command, topicName);
-            next->operation_type = 6;
-            next->server_response = 0;
-            strcpy(next->topic, topicName);
-            strcpy(next->content, "");
-            break;
-        }
-        else
-        {
-            printf("Comando inválido! Tente Novamente\n");
-        }
+        perror("Falha ao enviar dados para o servidor");
+        exit(EXIT_FAILURE);
     }
 }
-
 
 void *watcher(void *data)
 {
     pthread_detach(pthread_self());
 
-    struct BlogOperation* mov = malloc(sizeof(struct BlogOperation));
+    struct BlogOperation mov;
 
-    for (;;)
+    while (1)
     {
-        size_t count = recv(sock, mov, sizeof(struct BlogOperation), 0);
+        size_t count = recv(sock, &mov, sizeof(struct BlogOperation), 0);
 
-        if (count < 0)
-        {
-            perror("Erro ao receber dados do servidor");
-        }
-        else
-        {
-            if (mov->server_response == 1 && mov->operation_type == 2)
-            {
-                printf("\nNew post added in %s by %d\n%s", mov->topic, mov->client_id, mov->content);
-            }
-            makeChoice(mov);
+        verify(count);
 
-            size_t count = send(sock, mov, sizeof(struct BlogOperation), 0);
+        if (mov.operation_type == 2)
+        {
+            printf("\nNew post added in %s by %d\n%s", mov.topic, mov.client_id, mov.content);
         }
     }
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -155,73 +76,128 @@ int main(int argc, char *argv[])
     int res = (connect(sock, (struct sockaddr *)&servAddr, sizeof(servAddr)));
 
     struct BlogOperation mov;
-    struct BlogOperation mov2;
 
     if (res < 0)
     {
         perror("Connection failed");
     }
-    else
-    {
-        mov.client_id = 0;
-        mov.operation_type = 1;
 
-        size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+    mov.client_id = 0;
+    mov.operation_type = 1;
 
-        if (count != sizeof(struct BlogOperation))
-        {
-            perror("Falha ao enviar dados para o servidor");
-            exit(EXIT_FAILURE);
-        }
+    size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
 
-        id = mov.client_id;
-        mov2.client_id = id;
-    }
+    verify(count);
+
+    ssize_t count2 = recv(sock, &mov, sizeof(struct BlogOperation), 0);
+
+    verify(count2);
+
+    id = mov.client_id;
 
     pthread_t pid2;
 
-    pthread_create(&pid2, NULL, watcher, &mov2);
+    pthread_create(&pid2, NULL, watcher, NULL);
 
-    for (;;)
+    while (1)
     {
-        makeChoice(&mov);
+        char input[100]; // Ajuste o tamanho conforme necessário
+        char command[20];
 
-        size_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
-
-        if (count != sizeof(struct BlogOperation))
+        while (1)
         {
-            perror("Falha ao enviar dados para o servidor");
-            exit(EXIT_FAILURE);
-        }
+            printf("Digite a ação: ");
+            fgets(input, sizeof(input), stdin);
 
-        size_t recv_count = recv(sock, &mov, sizeof(struct BlogOperation), 0);
+            sscanf(input, "%s", command);
 
-        if (recv_count != sizeof(struct BlogOperation))
-        {
-            perror("Falha ao receber dados da resposta");
-            break;
-        }
-        else if (recv_count == 0)
-        {
-            printf("resposta vazia");
-        }
-        else
-        {
-            system("clear");
-
-            if (mov.server_response == 1 && mov.operation_type != 2)
+            if (strcmp(command, "subscribe") == 0)
             {
-                int id_op = mov.operation_type;
+                char topicName[50];
+                char useless[2];
+                sscanf(input, "%s %s %s", command, useless, topicName);
 
-                switch (id_op)
-                {
-                case 3:
-                    printf("%s\n", mov.content);
-                    break;
+                mov.operation_type = 4;
+                mov.server_response = 0;
+                strcpy(mov.topic, topicName);
+                strcpy(mov.content, "");
 
-                default:
-                    break;
-                }
+                ssize_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+                verify(count);
+
+                break;
+            }
+            else if (strcmp(command, "publish") == 0)
+            {
+                char topic[50];
+                char content[2048];
+                char useless[2];
+
+                sscanf(input, "%s %s %s", command, useless, topic);
+
+                // Usar fgets para ler o conteúdo sem incluir quebras de linha
+                printf("Digite o conteúdo do post: ");
+                fgets(content, sizeof(content), stdin);
+
+                mov.operation_type = 2;
+                mov.server_response = 0;
+                strcpy(mov.topic, topic);
+                strcpy(mov.content, content);
+
+                ssize_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+                
+                verify(count);
+
+                break;
+            }
+            else if (strcmp(command, "list") == 0)
+            {
+                mov.operation_type = 3;
+                mov.server_response = 0;
+                strcpy(mov.content, "");
+                strcpy(mov.topic, "");
+
+                ssize_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+                verify(count);
+
+                ssize_t recvBits = recv(sock, &mov, sizeof(struct BlogOperation), 0);
+
+                if (recvBits != sizeof(struct BlogOperation))
+                    perror("Listagem de tópicos falhou!");
+
+                printf("\n%s\n", mov.content);
+
+                break;
+            }
+            else if (strcmp(command, "exit") == 0)
+            {
+                mov.operation_type = 5;
+                mov.server_response = 0;
+                strcpy(mov.content, "");
+                strcpy(mov.topic, "");
+
+                ssize_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+                verify(count);
+
+                close(sock);
+                return 0;
+            }
+            else if (strcmp(command, "unsubscribe") == 0)
+            {
+                char topicName[50];
+                sscanf(input, "%s %s", command, topicName);
+                mov.operation_type = 6;
+                mov.server_response = 0;
+                strcpy(mov.topic, topicName);
+                strcpy(mov.content, "");
+                break;
+
+                ssize_t count = send(sock, &mov, sizeof(struct BlogOperation), 0);
+                verify(count);
+            }
+            else
+            {
+                printf("Comando inválido! Tente Novamente\n");
             }
         }
     }
