@@ -21,7 +21,6 @@ static const int MAXPENDING = 5;
  * @brief Inscreve um cliente em um determinado tópico, caso o mesmo exista. Se o tópico Não existe, cria um novo tópico e adiciona o cliente nele.
  *
  * @param op Ponteiro para a ordem de operação do cliente
- * @param tList Ponteiro para a lista de tópicos exitentes
  */
 void subscribe(struct BlogOperation *op)
 {
@@ -34,8 +33,7 @@ void subscribe(struct BlogOperation *op)
     else
     {
         for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
-        {    
-
+        {
             if (strcmp(op->topic, aux->name_topic) == 0)
             {
                 aux->subscribers[op->client_id] = 1;
@@ -58,18 +56,13 @@ void subscribe(struct BlogOperation *op)
             }
         }
     }
-    for (int i = 0; i < 10; i++)
-    {
-        printf("%d ", tpcs.subscribers[i]);
-    }
-    printf("\n");
+ 
 }
 
 /**
  * @brief Cancela a Incrição de um cliente em um tópico
  *
  * @param op Ponteiro para a ordem de operação do cliente
- * @param tList POnteiro para a lista de tópicos exitentes
  */
 void unsubscribe(struct BlogOperation *op)
 {
@@ -87,7 +80,6 @@ void unsubscribe(struct BlogOperation *op)
  * @brief lista os tópicos existentes
  *
  * @param op Ordem de operação que será enviada com a resposta para o cliente (Ponteiro)
- * @param t Lista de tópicos
  */
 void listTopics(struct BlogOperation *op)
 {
@@ -98,6 +90,7 @@ void listTopics(struct BlogOperation *op)
         for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
         {
             strcat(topics, aux->name_topic);
+            strcat(topics, "\n");
         }
     }
     else
@@ -108,47 +101,58 @@ void listTopics(struct BlogOperation *op)
     strcpy(op->content, topics);
 }
 
+void sendPost(struct Topic *t, char *postagem)
+{
+    for (int i = 0; i < 10; i++)
+    {
+        if (t->subscribers[i] == 1)
+        {
+            for (struct Client *aux = &cli; aux != NULL; aux = aux->nextClient)
+            {
+                if (aux->id == i)
+                {
+                    struct BlogOperation notif;
+                    notif.client_id = aux->id;
+                    notif.server_response = 1;
+                    notif.operation_type = 2;
+
+                    strcpy(notif.content, postagem);
+                    strcpy(notif.topic, t->name_topic);
+
+                    ssize_t scount = send(aux->csock, &notif, sizeof(struct BlogOperation), 0);
+
+                    if (scount != sizeof(struct BlogOperation))
+                    {
+                        printf("Dados não enviados para cliente %d\n", i);
+                        exit(EXIT_FAILURE);
+                    }
+                    else
+                    {
+                        printf("Enviei post para cliente %d\n", i);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /**
  * @brief Cria um novo post em um determinado tópico, caso o mesmo exista.
  *
- * @attention
  */
 void createPost(struct BlogOperation *op)
 {
-    struct Topic *t;
     for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
     {
         if (strcmp(aux->name_topic, op->topic) == 0)
         {
-            t = aux;
+            sendPost(aux, op->content);
             break;
         }
         else if (aux->next_topic == NULL)
         {
             subscribe(op);
-            t = aux->next_topic;
-        }
-
-        for (int i = 0; i < 10; i++)
-        {
-            if (t->subscribers[i] == 1)
-            {
-                for (struct Client *aux = &cli; aux != NULL; aux = aux->nextClient)
-                {
-                    if (aux->id == i)
-                    {
-                        struct BlogOperation notif;
-                        notif.client_id = aux->id;
-                        notif.server_response = 1;
-                        notif.operation_type = 2;
-
-                        strcpy(notif.content, op->content);
-                        strcpy(notif.topic, op->topic);
-
-                        send(aux->csock, &notif, sizeof(struct BlogOperation), 0);
-                    }
-                }
-            }
+            sendPost(aux->next_topic, op->topic);
         }
     }
 }
@@ -183,6 +187,23 @@ int addClient(int csock)
                 aux->nextClient = new_client;
                 return new_client->id;
             }
+        }
+    }
+}
+
+void disconnect(struct BlogOperation *op)
+{
+    for (struct Topic *aux = &tpcs; aux != NULL; aux = aux->next_topic)
+    {
+        aux->subscribers[op->client_id] = 0;
+    }
+    for(struct Client *c = &cli; c != NULL; c = c->nextClient)
+    {
+        if(op->client_id == c->id)
+        {
+            c->id = -1;
+            c->csock = NULL;
+            
         }
     }
 }
@@ -223,7 +244,9 @@ void processaEntrada(struct BlogOperation *op, int csock, pthread_mutex_t *mutex
 
     // Listagem de Tópicos
     case 3:
+        pthread_mutex_lock(mutex);
         listTopics(op);
+        pthread_mutex_unlock(mutex);
 
         printf("Topics Listed by %d \n", op->client_id);
         break;
@@ -248,6 +271,9 @@ void processaEntrada(struct BlogOperation *op, int csock, pthread_mutex_t *mutex
 
     // Desconecta de servidor
     case 5:
+        pthread_mutex_lock(mutex);
+        disconnect(op);
+        pthread_mutex_unlock(mutex);
         printf("Client %d disconnected\n", op->client_id);
         break;
 
@@ -279,7 +305,7 @@ void *clientThread(void *data)
         {
             processaEntrada(&mov, cdata->csock, cdata->mutex);
 
-            size_t scount = send(cdata->csock, &mov, sizeof(struct BlogOperation), 0);
+            ssize_t scount = send(cdata->csock, &mov, sizeof(struct BlogOperation), 0);
 
             if (scount < sizeof(struct BlogOperation))
             {
@@ -352,6 +378,7 @@ int main(int argc, char *argv[])
     }
 
     pthread_mutex_t mutex;
+    pthread_mutex_init(&mutex, NULL);
 
     while (1)
     {
